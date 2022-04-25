@@ -17,6 +17,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpEntity;
 import org.json.JSONObject;
+import datadog.trace.api.Trace;
+import io.opentracing.Span;
+import io.opentracing.util.GlobalTracer;
 
 @Component
 public class PackageService {
@@ -25,11 +28,16 @@ public class PackageService {
 
     private static final Logger logger = LoggerFactory.getLogger(PackageService.class);
 
+    @Trace(operationName = "cronjob.execute", resourceName = "PackageService.cronJobSch")
     @Scheduled(cron = "0 */1 * * * *")
     public void cronJobSch() {
         List<Produce> produces = produceRepository.findByPackaged(false);
 
         for(Produce produce : produces) {
+            final Span span = GlobalTracer.get().activeSpan();
+            if (span != null) {
+                span.setTag("order_id", produce.getOrderId());
+            }
             produce.setPackaged(true);
             logger.info("Produce with ProduceID - {} and OrderID - {} packaged", produce.getId(), produce.getOrderId());
             produceRepository.save(produce);
