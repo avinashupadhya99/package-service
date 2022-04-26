@@ -18,7 +18,10 @@ import org.springframework.http.MediaType;
 import org.springframework.http.HttpEntity;
 import org.json.JSONObject;
 import datadog.trace.api.Trace;
+import datadog.trace.api.DDTags;
+import io.opentracing.Scope;
 import io.opentracing.Span;
+import io.opentracing.Tracer;
 import io.opentracing.util.GlobalTracer;
 
 @Component
@@ -34,14 +37,26 @@ public class PackageService {
         List<Produce> produces = produceRepository.findByPackaged(false);
 
         for(Produce produce : produces) {
-            final Span span = GlobalTracer.get().activeSpan();
-            if (span != null) {
+            Tracer tracer = GlobalTracer.get();
+            Span span = tracer.buildSpan("cronjob.execute")
+            .withTag(DDTags.SERVICE_NAME, "package-service")
+            .withTag(DDTags.RESOURCE_NAME, "PackageService.cronJobSch")
+            .start();
+            logger.debug("SpanID - {}", span.context().toSpanId());
+            try (Scope scope = tracer.activateSpan(span)) {
                 span.setTag("order_id", produce.getOrderId());
+                logger.debug("OrderID set as span tag");
+            
+                produce.setPackaged(true);
+                logger.info("Produce with ProduceID - {} and OrderID - {} packaged", produce.getId(), produce.getOrderId());
+                produceRepository.save(produce);
+                CompleteOrder(produce.getOrderId());
+            } catch (Exception e) {
+                logger.error("Internal server error with span tags");
+            } finally {
+                // Close span in a finally block
+                span.finish();
             }
-            produce.setPackaged(true);
-            logger.info("Produce with ProduceID - {} and OrderID - {} packaged", produce.getId(), produce.getOrderId());
-            produceRepository.save(produce);
-            CompleteOrder(produce.getOrderId());
         }
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
         Date now = new Date();
