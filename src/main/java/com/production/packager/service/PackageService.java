@@ -23,6 +23,7 @@ import io.opentracing.Scope;
 import io.opentracing.Span;
 import io.opentracing.Tracer;
 import io.opentracing.util.GlobalTracer;
+import io.opentracing.tag.Tags;
 
 @Component
 public class PackageService {
@@ -34,7 +35,7 @@ public class PackageService {
     @Trace(operationName = "cronjob.execute", resourceName = "PackageService.cronJobSch")
     @Scheduled(cron = "0 */1 * * * *")
     public void cronJobSch() {
-        List<Produce> produces = produceRepository.findByPackaged(false);
+        List<Produce> produces = produceRepository.findByPackagedAndPackageTriesLessThanEqual(false, 3);
 
         for(Produce produce : produces) {
             Tracer tracer = GlobalTracer.get();
@@ -46,11 +47,20 @@ public class PackageService {
             try (Scope scope = tracer.activateSpan(span)) {
                 span.setTag("order_id", produce.getOrderId());
                 logger.debug("OrderID set as span tag");
-            
+                
+                if(produce.getOrderId()%3==0) {
+                    produce.setPackageTries(produce.getPackageTries()+1);
+                    produceRepository.save(produce);
+                    span.setTag(Tags.ERROR, true);
+                    throw new IllegalArgumentException("Order ID cannot be a multiple of 3 for no reason");
+                }
+
                 produce.setPackaged(true);
                 logger.info("Produce with ProduceID - {} and OrderID - {} packaged", produce.getId(), produce.getOrderId());
                 produceRepository.save(produce);
                 CompleteOrder(produce.getOrderId());
+            } catch (IllegalArgumentException e) {
+                logger.error(e.getMessage());
             } catch (Exception e) {
                 logger.error("Internal server error with span tags");
             } finally {

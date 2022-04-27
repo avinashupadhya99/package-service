@@ -11,5 +11,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ProduceRepository extends CrudRepository<Produce, Long> {
     Optional<Produce> findById(Long id);
-    List<Produce> findByPackaged(boolean packaged);
+    List<Produce> findByPackagedAndPackageTriesLessThanEqual(boolean packaged, int packageTries);
 }

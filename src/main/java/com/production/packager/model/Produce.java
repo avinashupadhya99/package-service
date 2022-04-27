@@ -5,7 +5,6 @@ import javax.validation.constraints.NotNull;
 import javax.persistence.Entity;
 import javax.persistence.Column;
 import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
 import org.hibernate.annotations.GenericGenerator;
@@ -34,6 +33,8 @@ public class Produce {
     private String product;
     @Column(columnDefinition="boolean default false")
     private boolean packaged;
+    @Column
+    private int packageTries = 0;
 
     public Long getId() {
         return this.id;
@@ -73,6 +74,14 @@ public class Produce {
 
     public void setPackaged(boolean packaged) {
         this.packaged = packaged;
+    }
+
+    public int getPackageTries() {
+        return this.packageTries;
+    }
+
+    public void setPackageTries(int packageTries) {
+        this.packageTries = packageTries;
     }
 
 }
